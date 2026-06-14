@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101820">
+  <title>Wi-Fi Survey</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <p class="eyebrow">ESP32-01</p>
+      <h1>Wi-Fi Survey</h1>
+    </div>
+    <div class="connection-pill" id="connectionPill"><span></span><b>Checking</b></div>
+  </header>
+
+  <main>
+    <section class="page active" data-page="live">
+      <div class="signal-panel quality-unavailable" id="signalPanel">
+        <div class="signal-reading">
+          <span id="rssiValue">--</span><small>dBm</small>
+        </div>
+        <div>
+          <p class="eyebrow">Live signal</p>
+          <h2 id="qualityValue">Unavailable</h2>
+          <p id="ssidValue">Not connected</p>
+        </div>
+      </div>
+
+      <div class="metric-grid">
+        <div class="metric"><span>BSSID</span><b id="bssidValue">--</b></div>
+        <div class="metric"><span>Channel</span><b id="channelValue">--</b></div>
+        <div class="metric"><span>Local IP</span><b id="ipValue">--</b></div>
+        <div class="metric"><span>Uptime</span><b id="uptimeValue">--</b></div>
+      </div>
+
+      <button class="primary wide" id="recordButton">Record Measurement Point</button>
+      <p class="inline-status" id="recordHint">Select a floor-plan location before recording.</p>
+    </section>
+
+    <section class="page" data-page="setup">
+      <div class="section-heading">
+        <div><p class="eyebrow">Network</p><h2>Connect ESP32</h2></div>
+        <button class="icon-button" id="scanButton" title="Scan nearby networks" aria-label="Scan nearby networks">&#8635;</button>
+      </div>
+      <div id="networkList" class="network-list"><p class="empty">Tap scan to find nearby networks.</p></div>
+      <form id="connectForm" class="form-stack">
+        <label>SSID<input id="ssidInput" required autocomplete="off"></label>
+        <label>Password<input id="passwordInput" type="password" autocomplete="current-password"></label>
+        <button class="primary" type="submit">Save and connect</button>
+      </form>
+      <button class="danger-text" id="resetWifiButton">Clear Wi-Fi credentials</button>
+    </section>
+
+    <section class="page floor-page" data-page="floor">
+      <div class="section-heading">
+        <div><p class="eyebrow">Location</p><h2>Floor plan</h2></div>
+        <label class="icon-button" title="Take or choose floor-plan photo" aria-label="Take or choose floor-plan photo">+
+          <input id="floorFileInput" type="file" accept="image/*" capture="environment" hidden>
+        </label>
+      </div>
+
+      <div class="canvas-shell" id="canvasShell">
+        <canvas id="floorCanvas"></canvas>
+        <div class="canvas-empty" id="canvasEmpty">
+          <b>Add a floor-plan photo</b>
+          <span>Photograph a paper plan or choose an image.</span>
+        </div>
+      </div>
+
+      <div class="tool-row">
+        <button class="tool active" id="locateTool">Place point</button>
+        <button class="tool" id="panTool">Pan</button>
+        <button class="tool" id="scaleTool">Set scale</button>
+        <button class="tool" id="cropTool">Crop</button>
+        <button class="icon-button" id="rotateButton" title="Rotate image" aria-label="Rotate image">&#8635;</button>
+      </div>
+      <p class="inline-status" id="floorHint">Add an image, then tap your current location.</p>
+
+      <div class="form-grid">
+        <label>Plan width (m)<input id="planWidth" type="number" min="0" step="0.1" placeholder="Optional"></label>
+        <label>Plan length (m)<input id="planLength" type="number" min="0" step="0.1" placeholder="Optional"></label>
+      </div>
+      <p class="scale-readout" id="scaleReadout">Scale not calibrated</p>
+    </section>
+
+    <section class="page" data-page="measurements">
+      <div class="section-heading">
+        <div><p class="eyebrow">Saved locally</p><h2>Measurements</h2></div>
+        <button class="icon-button" id="exportCsvButton" title="Export CSV" aria-label="Export CSV">&#8595;</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Room</th><th>Signal</th><th>Channel</th><th>Time</th><th></th></tr></thead>
+          <tbody id="measurementRows"></tbody>
+        </table>
+        <p class="empty" id="measurementsEmpty">No measurement points recorded yet.</p>
+      </div>
+    </section>
+
+    <section class="page" data-page="report">
+      <div class="section-heading">
+        <div><p class="eyebrow">Survey summary</p><h2>Report</h2></div>
+        <button class="icon-button" id="printButton" title="Print report" aria-label="Print report">&#9113;</button>
+      </div>
+      <div class="report-summary" id="reportSummary"></div>
+      <div class="report-band">
+        <h3>Signal distribution</h3>
+        <div id="qualityBars"></div>
+      </div>
+      <div class="report-band">
+        <h3>Floor-plan points</h3>
+        <canvas id="reportCanvas"></canvas>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main navigation">
+    <button data-target="live" class="active"><span>&#9673;</span>Live</button>
+    <button data-target="setup"><span>&#9881;</span>Setup</button>
+    <button data-target="floor"><span>&#9638;</span>Plan</button>
+    <button data-target="measurements"><span>&#9776;</span>Points</button>
+    <button data-target="report"><span>&#9636;</span>Report</button>
+  </nav>
+
+  <dialog id="measurementDialog">
+    <form method="dialog" id="measurementForm">
+      <div class="dialog-heading"><h2>Record point</h2><button value="cancel" class="icon-button" aria-label="Close">&times;</button></div>
+      <label>Room
+        <select id="roomInput">
+          <option>Living Room</option><option>Kitchen</option><option>Garage</option>
+          <option>Basement</option><option>Bedroom</option><option>Office</option>
+          <option>Hallway</option><option>Custom</option>
+        </select>
+      </label>
+      <label id="customRoomLabel" hidden>Custom room<input id="customRoomInput"></label>
+      <label>Note<textarea id="noteInput" rows="3" placeholder="Optional"></textarea></label>
+      <div class="dialog-actions"><button value="cancel">Cancel</button><button value="default" class="primary" id="saveMeasurementButton">Save point</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="distanceDialog">
+    <form method="dialog" id="distanceForm">
+      <h2>Set real distance</h2>
+      <p>Enter the real-world distance between the two selected points.</p>
+      <label>Distance (m)<input id="distanceInput" type="number" min="0.01" step="0.01" required></label>
+      <div class="dialog-actions"><button value="cancel">Cancel</button><button value="default" class="primary">Set scale</button></div>
+    </form>
+  </dialog>
+
+  <div class="toast" id="toast"></div>
+  <script src="/app.js"></script>
+</body>
+</html>

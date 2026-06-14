@@ -1,0 +1,8 @@
+.pio/
+.DS_Store
+ios/DerivedData/
+ios/build/
+*.xcuserstate
+xcuserdata/
+.vscode/c_cpp_properties.json
+.vscode/launch.json
