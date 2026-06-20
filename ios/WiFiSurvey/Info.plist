@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Wi-Fi Survey</string>
+	<string>Smart AV</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -26,11 +26,19 @@
 		<true/>
 	</dict>
 	<key>NSCameraUsageDescription</key>
-	<string>Scan rooms to generate a floor plan.</string>
+	<string>Scan rooms, map floor areas, and place AR site task markers.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Discover and pair with the Wi-Fi Survey ESP32.</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>Connect to the ESP32 Wi-Fi survey device on your local network.</string>
+	<key>UIAppFonts</key>
+	<array>
+		<string>Satoshi-Regular.woff</string>
+		<string>Satoshi-Medium.woff</string>
+		<string>Satoshi-Bold.woff</string>
+		<string>TomatoGrotesk-Bold.ttf</string>
+		<string>TomatoGrotesk-Medium.ttf</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

@@ -10,6 +10,9 @@ struct AreaLandmarkCaptureView: View {
     @State private var finishToken = 0
     @State private var landmarks: [AreaLandmark] = []
     @State private var status = "Move slowly until tracking is ready."
+    private let accent = Color(red: 0.08, green: 0.82, blue: 0.95)
+    private let primary = Color(red: 0.22, green: 0.43, blue: 1.0)
+    private let panel = Color.white.opacity(0.10)
 
     var body: some View {
         ZStack {
@@ -31,14 +34,20 @@ struct AreaLandmarkCaptureView: View {
                 VStack(spacing: 5) {
                     Text("\(landmarks.count) areas marked")
                         .font(.headline)
+                        .foregroundStyle(.white)
                     Text(status)
                         .font(.caption)
                         .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(.white.opacity(0.68))
                 }
                 .frame(maxWidth: .infinity)
-                .padding(12)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                .padding(14)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .background(panel, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                }
                 Spacer()
 
                 VStack(spacing: 10) {
@@ -49,6 +58,7 @@ struct AreaLandmarkCaptureView: View {
                             }
                         }
                         .pickerStyle(.menu)
+                        .tint(.white)
                         Spacer()
                         Button {
                             selectedFloorId = store.addFloor().id
@@ -56,9 +66,12 @@ struct AreaLandmarkCaptureView: View {
                             Image(systemName: "plus")
                         }
                         .accessibilityLabel("Add floor")
+                        .foregroundStyle(accent)
                     }
                     TextField("Area name, for example Kitchen", text: $areaName)
-                        .textFieldStyle(.roundedBorder)
+                        .padding(13)
+                        .background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .foregroundStyle(.white)
                     Button {
                         let trimmed = areaName.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !trimmed.isEmpty else { return }
@@ -69,28 +82,38 @@ struct AreaLandmarkCaptureView: View {
                         Label("Mark Area at Reticle", systemImage: "mappin.and.ellipse")
                             .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(.plain)
+                    .padding(.vertical, 14)
+                    .background(LinearGradient(colors: [primary, accent], startPoint: .leading, endPoint: .trailing), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .foregroundStyle(.white)
                     .controlSize(.large)
                     .disabled(areaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .opacity(areaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? 0.45 : 1)
 
                     HStack {
                         Button("Cancel", role: .destructive) { dismiss() }
+                            .foregroundStyle(Color(red: 1.0, green: 0.23, blue: 0.32))
                         Spacer()
                         Button {
                             finishToken += 1
                         } label: {
                             Label("Finish Map", systemImage: "checkmark.circle.fill")
                         }
-                        .buttonStyle(.borderedProminent)
-                        .tint(.green)
+                        .foregroundStyle(landmarks.isEmpty ? .white.opacity(0.35) : Color(red: 0.20, green: 0.86, blue: 0.48))
                         .disabled(landmarks.isEmpty)
                     }
                 }
-                .padding(14)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                .padding(16)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(panel, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                }
             }
             .padding()
         }
+        .preferredColorScheme(.dark)
         .onAppear { selectedFloorId = selectedFloorId ?? store.buildingFloors.first?.id }
     }
 }

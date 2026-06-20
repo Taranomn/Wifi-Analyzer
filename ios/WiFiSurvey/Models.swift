@@ -104,6 +104,56 @@ struct PhoneTesterStatus {
     var lastUpdated: Date?
 }
 
+struct PhoneNetworkSample: Codable, Identifiable {
+    let id: UUID
+    let areaId: UUID?
+    let timestamp: Date
+    let ssid: String?
+    let bssid: String?
+    let normalizedSignalStrength: Double?
+    let interfaceType: String
+    let isExpensive: Bool
+    let isConstrained: Bool
+    let internetReachable: Bool
+    let averageLatencyMs: Double?
+    let minLatencyMs: Double?
+    let maxLatencyMs: Double?
+    let jitterMs: Double?
+    let packetLossPercent: Double
+    let downloadSpeedMbps: Double?
+    let uploadSpeedMbps: Double?
+    let probesSent: Int
+    let probesSucceeded: Int
+    let score: Int
+
+    var qualityLabel: String { ProfessionalScore.label(score) }
+
+    func assigned(to areaId: UUID?) -> PhoneNetworkSample {
+        PhoneNetworkSample(
+            id: UUID(),
+            areaId: areaId,
+            timestamp: Date(),
+            ssid: ssid,
+            bssid: bssid,
+            normalizedSignalStrength: normalizedSignalStrength,
+            interfaceType: interfaceType,
+            isExpensive: isExpensive,
+            isConstrained: isConstrained,
+            internetReachable: internetReachable,
+            averageLatencyMs: averageLatencyMs,
+            minLatencyMs: minLatencyMs,
+            maxLatencyMs: maxLatencyMs,
+            jitterMs: jitterMs,
+            packetLossPercent: packetLossPercent,
+            downloadSpeedMbps: downloadSpeedMbps,
+            uploadSpeedMbps: uploadSpeedMbps,
+            probesSent: probesSent,
+            probesSucceeded: probesSucceeded,
+            score: score
+        )
+    }
+}
+
 struct ChannelAnalysis: Codable {
     let currentChannel: Int
     let currentChannelCongestion: String
@@ -139,6 +189,125 @@ struct CalibrationProfile: Codable, Identifiable {
     let phoneThroughputMbps: Double?
 }
 
+struct SurveyWorkspaceSnapshot: Codable {
+    var homeMap: HomeMap
+    var buildingFloors: [BuildingFloor]
+    var areaLandmarks: [AreaLandmark]
+    var locationEquipment: [LocationEquipmentItem]
+    var siteTasks: [SiteTask]
+    var siteTaskWorldMapData: Data?
+    var employees: [Employee]
+    var workShifts: [WorkShift]
+    var projectFiles: [ProjectFileAttachment]
+    var securityCheckItems: [SecurityCheckItem]
+    var devices: [SurveyDevice]
+    var phoneNetworkSamples: [PhoneNetworkSample]
+    var hardwareProfiles: [String: HardwareProfile]
+    var calibrations: [CalibrationProfile]
+    var projectName: String
+    var points: [SurveyPoint]
+    var pendingRoomName: String
+
+    enum CodingKeys: String, CodingKey {
+        case homeMap, buildingFloors, areaLandmarks, locationEquipment, siteTasks, siteTaskWorldMapData, employees, workShifts, devices
+        case projectFiles, securityCheckItems, phoneNetworkSamples, hardwareProfiles, calibrations, projectName, points, pendingRoomName
+    }
+
+    init(
+        homeMap: HomeMap,
+        buildingFloors: [BuildingFloor],
+        areaLandmarks: [AreaLandmark],
+        locationEquipment: [LocationEquipmentItem] = [],
+        siteTasks: [SiteTask] = [],
+        siteTaskWorldMapData: Data? = nil,
+        employees: [Employee] = [],
+        workShifts: [WorkShift] = [],
+        projectFiles: [ProjectFileAttachment] = [],
+        securityCheckItems: [SecurityCheckItem] = [],
+        devices: [SurveyDevice],
+        phoneNetworkSamples: [PhoneNetworkSample],
+        hardwareProfiles: [String: HardwareProfile],
+        calibrations: [CalibrationProfile],
+        projectName: String,
+        points: [SurveyPoint],
+        pendingRoomName: String
+    ) {
+        self.homeMap = homeMap
+        self.buildingFloors = buildingFloors
+        self.areaLandmarks = areaLandmarks
+        self.locationEquipment = locationEquipment
+        self.siteTasks = siteTasks
+        self.siteTaskWorldMapData = siteTaskWorldMapData
+        self.employees = employees
+        self.workShifts = workShifts
+        self.projectFiles = projectFiles
+        self.securityCheckItems = securityCheckItems
+        self.devices = devices
+        self.phoneNetworkSamples = phoneNetworkSamples
+        self.hardwareProfiles = hardwareProfiles
+        self.calibrations = calibrations
+        self.projectName = projectName
+        self.points = points
+        self.pendingRoomName = pendingRoomName
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        homeMap = try container.decode(HomeMap.self, forKey: .homeMap)
+        buildingFloors = try container.decode([BuildingFloor].self, forKey: .buildingFloors)
+        areaLandmarks = try container.decode([AreaLandmark].self, forKey: .areaLandmarks)
+        locationEquipment = try container.decodeIfPresent([LocationEquipmentItem].self, forKey: .locationEquipment) ?? []
+        siteTasks = try container.decodeIfPresent([SiteTask].self, forKey: .siteTasks) ?? []
+        siteTaskWorldMapData = try container.decodeIfPresent(Data.self, forKey: .siteTaskWorldMapData)
+        employees = try container.decodeIfPresent([Employee].self, forKey: .employees) ?? []
+        workShifts = try container.decodeIfPresent([WorkShift].self, forKey: .workShifts) ?? []
+        projectFiles = try container.decodeIfPresent([ProjectFileAttachment].self, forKey: .projectFiles) ?? []
+        securityCheckItems = try container.decodeIfPresent([SecurityCheckItem].self, forKey: .securityCheckItems) ?? []
+        devices = try container.decode([SurveyDevice].self, forKey: .devices)
+        phoneNetworkSamples = try container.decode([PhoneNetworkSample].self, forKey: .phoneNetworkSamples)
+        hardwareProfiles = try container.decode([String: HardwareProfile].self, forKey: .hardwareProfiles)
+        calibrations = try container.decode([CalibrationProfile].self, forKey: .calibrations)
+        projectName = try container.decode(String.self, forKey: .projectName)
+        points = try container.decode([SurveyPoint].self, forKey: .points)
+        pendingRoomName = try container.decode(String.self, forKey: .pendingRoomName)
+    }
+}
+
+struct SurveyLocation: Codable, Identifiable {
+    let id: UUID
+    var name: String
+    var address: String
+    var directionsNote: String
+    var createdAt: Date
+    var updatedAt: Date
+    var snapshot: SurveyWorkspaceSnapshot
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, address, directionsNote, createdAt, updatedAt, snapshot
+    }
+
+    init(id: UUID, name: String, address: String = "", directionsNote: String = "", createdAt: Date, updatedAt: Date, snapshot: SurveyWorkspaceSnapshot) {
+        self.id = id
+        self.name = name
+        self.address = address
+        self.directionsNote = directionsNote
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.snapshot = snapshot
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        address = try container.decodeIfPresent(String.self, forKey: .address) ?? ""
+        directionsNote = try container.decodeIfPresent(String.self, forKey: .directionsNote) ?? ""
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+        snapshot = try container.decode(SurveyWorkspaceSnapshot.self, forKey: .snapshot)
+    }
+}
+
 struct SurveyRecommendation: Codable, Identifiable {
     let id: UUID
     let areaId: UUID
@@ -162,6 +331,207 @@ struct APPlacementSuggestion: Identifiable {
     let reason: String
     let coveredAreaNames: [String]
     let estimatedRealDeviceRssi: Int?
+}
+
+struct Employee: Codable, Identifiable, Hashable {
+    let id: UUID
+    var name: String
+    var role: String
+    var phone: String
+    var email: String
+}
+
+struct ProjectFileAttachment: Codable, Identifiable, Hashable {
+    let id: UUID
+    var name: String
+    var originalFilename: String
+    var localFilename: String
+    var contentType: String
+    var note: String
+    var uploadedByEmployeeId: UUID?
+    var createdAt: Date
+}
+
+struct SecurityCheckItem: Codable, Identifiable, Hashable {
+    let id: UUID
+    var title: String
+    var category: String
+    var areaId: UUID?
+    var taskId: UUID?
+    var isDone: Bool
+    var note: String
+    var updatedAt: Date
+}
+
+struct WorkShift: Codable, Identifiable, Hashable {
+    let id: UUID
+    var locationId: UUID
+    var locationName: String
+    var siteAddress: String
+    var title: String
+    var startTime: Date
+    var endTime: Date
+    var employeeIds: [UUID]
+    var notes: String
+    var createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, locationId, locationName, siteAddress, title, startTime, endTime, employeeIds, notes, createdAt
+    }
+
+    init(id: UUID, locationId: UUID, locationName: String, siteAddress: String = "", title: String, startTime: Date, endTime: Date, employeeIds: [UUID], notes: String, createdAt: Date) {
+        self.id = id
+        self.locationId = locationId
+        self.locationName = locationName
+        self.siteAddress = siteAddress
+        self.title = title
+        self.startTime = startTime
+        self.endTime = endTime
+        self.employeeIds = employeeIds
+        self.notes = notes
+        self.createdAt = createdAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        locationId = try container.decode(UUID.self, forKey: .locationId)
+        locationName = try container.decode(String.self, forKey: .locationName)
+        siteAddress = try container.decodeIfPresent(String.self, forKey: .siteAddress) ?? ""
+        title = try container.decode(String.self, forKey: .title)
+        startTime = try container.decode(Date.self, forKey: .startTime)
+        endTime = try container.decode(Date.self, forKey: .endTime)
+        employeeIds = try container.decode([UUID].self, forKey: .employeeIds)
+        notes = try container.decode(String.self, forKey: .notes)
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+    }
+}
+
+struct LocationEquipmentItem: Codable, Identifiable, Hashable {
+    let id: UUID
+    var name: String
+    var quantity: Int
+    var category: String
+    var areaId: UUID?
+    var assigneeIds: [UUID]
+    var installTaskId: UUID?
+    var note: String
+    var isPacked: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, quantity, category, areaId, assigneeIds, installTaskId, note, isPacked
+    }
+
+    init(id: UUID, name: String, quantity: Int, category: String, areaId: UUID? = nil, assigneeIds: [UUID] = [], installTaskId: UUID? = nil, note: String, isPacked: Bool) {
+        self.id = id
+        self.name = name
+        self.quantity = quantity
+        self.category = category
+        self.areaId = areaId
+        self.assigneeIds = assigneeIds
+        self.installTaskId = installTaskId
+        self.note = note
+        self.isPacked = isPacked
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        quantity = try container.decode(Int.self, forKey: .quantity)
+        category = try container.decode(String.self, forKey: .category)
+        areaId = try container.decodeIfPresent(UUID.self, forKey: .areaId)
+        assigneeIds = try container.decodeIfPresent([UUID].self, forKey: .assigneeIds) ?? []
+        installTaskId = try container.decodeIfPresent(UUID.self, forKey: .installTaskId)
+        note = try container.decode(String.self, forKey: .note)
+        isPacked = try container.decode(Bool.self, forKey: .isPacked)
+    }
+}
+
+struct SiteTask: Codable, Identifiable, Hashable {
+    let id: UUID
+    var title: String
+    var category: String
+    var note: String
+    var status: String
+    var floorId: UUID?
+    var areaId: UUID?
+    var assigneeIds: [UUID]
+    var dueDate: Date?
+    var priority: String
+    var subtasks: [SiteSubtask]
+    var wantsARPlacement: Bool
+    var worldTransform: [Double]
+    var createdAt: Date
+    var updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, title, category, note, status, floorId, areaId, assigneeIds, dueDate, priority, subtasks, wantsARPlacement, worldTransform, createdAt, updatedAt
+    }
+
+    init(
+        id: UUID,
+        title: String,
+        category: String,
+        note: String,
+        status: String,
+        floorId: UUID?,
+        areaId: UUID?,
+        assigneeIds: [UUID] = [],
+        dueDate: Date? = nil,
+        priority: String = "Normal",
+        subtasks: [SiteSubtask] = [],
+        wantsARPlacement: Bool = false,
+        worldTransform: [Double] = [],
+        createdAt: Date,
+        updatedAt: Date
+    ) {
+        self.id = id
+        self.title = title
+        self.category = category
+        self.note = note
+        self.status = status
+        self.floorId = floorId
+        self.areaId = areaId
+        self.assigneeIds = assigneeIds
+        self.dueDate = dueDate
+        self.priority = priority
+        self.subtasks = subtasks
+        self.wantsARPlacement = wantsARPlacement
+        self.worldTransform = worldTransform
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        title = try container.decode(String.self, forKey: .title)
+        category = try container.decode(String.self, forKey: .category)
+        note = try container.decode(String.self, forKey: .note)
+        status = try container.decode(String.self, forKey: .status)
+        floorId = try container.decodeIfPresent(UUID.self, forKey: .floorId)
+        areaId = try container.decodeIfPresent(UUID.self, forKey: .areaId)
+        assigneeIds = try container.decodeIfPresent([UUID].self, forKey: .assigneeIds) ?? []
+        dueDate = try container.decodeIfPresent(Date.self, forKey: .dueDate)
+        priority = try container.decodeIfPresent(String.self, forKey: .priority) ?? "Normal"
+        subtasks = try container.decodeIfPresent([SiteSubtask].self, forKey: .subtasks) ?? []
+        wantsARPlacement = try container.decodeIfPresent(Bool.self, forKey: .wantsARPlacement) ?? false
+        worldTransform = try container.decodeIfPresent([Double].self, forKey: .worldTransform) ?? []
+        createdAt = try container.decode(Date.self, forKey: .createdAt)
+        updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    }
+
+    var x: Double { worldTransform.indices.contains(12) ? worldTransform[12] : 0 }
+    var y: Double { worldTransform.indices.contains(13) ? worldTransform[13] : 0 }
+    var z: Double { worldTransform.indices.contains(14) ? worldTransform[14] : 0 }
+}
+
+struct SiteSubtask: Codable, Identifiable, Hashable {
+    let id: UUID
+    var title: String
+    var isDone: Bool
+    var createdAt: Date
 }
 
 struct PlanningStatus: Codable {
@@ -206,6 +576,48 @@ enum ProfessionalScore {
         }
     }
 
+    static func phone(_ sample: PhoneNetworkSample) -> Int {
+        phoneScore(
+            normalizedSignalStrength: sample.normalizedSignalStrength,
+            averageLatencyMs: sample.averageLatencyMs,
+            packetLossPercent: sample.packetLossPercent,
+            jitterMs: sample.jitterMs,
+            downloadSpeedMbps: sample.downloadSpeedMbps,
+            uploadSpeedMbps: sample.uploadSpeedMbps,
+            internetReachable: sample.internetReachable,
+            timestamp: sample.timestamp
+        )
+    }
+
+    static func phoneScore(
+        normalizedSignalStrength: Double?,
+        averageLatencyMs: Double?,
+        packetLossPercent: Double,
+        jitterMs: Double?,
+        downloadSpeedMbps: Double? = nil,
+        uploadSpeedMbps: Double? = nil,
+        internetReachable: Bool,
+        timestamp: Date = Date()
+    ) -> Int {
+        let signal = phoneSignalScore(normalizedSignalStrength)
+        let latency = latencyScore(averageLatencyMs)
+        let loss = lossScore(packetLossPercent)
+        let jitter = jitterScore(jitterMs)
+        let speed = averageScore([downloadSpeedMbps, uploadSpeedMbps].map(speedScore))
+        let path = internetReachable ? 100.0 : 0
+        let freshness = max(0, 100 - Date().timeIntervalSince(timestamp) * 0.5)
+        return Int((signal * 0.15 + latency * 0.22 + loss * 0.22 + jitter * 0.10 + speed * 0.12 + path * 0.14 + freshness * 0.05).rounded())
+    }
+
+    private static func phoneSignalScore(_ value: Double?) -> Double {
+        guard let value else { return 45 }
+        if value >= 0.85 { return 100 }
+        if value >= 0.65 { return 80 }
+        if value >= 0.45 { return 55 }
+        if value >= 0.25 { return 30 }
+        return 10
+    }
+
     private static func rssiScore(_ value: Int?) -> Double {
         guard let value else { return 0 }
         if value >= -50 { return 100 }
@@ -236,6 +648,17 @@ enum ProfessionalScore {
         if value >= 25 { return 80 }
         if value >= 10 { return 55 }
         return 20
+    }
+    private static func averageScore(_ values: [Double]) -> Double {
+        guard !values.isEmpty else { return 40 }
+        return values.reduce(0, +) / Double(values.count)
+    }
+    private static func jitterScore(_ value: Double?) -> Double {
+        guard let value else { return 40 }
+        if value < 10 { return 100 }
+        if value <= 25 { return 75 }
+        if value <= 50 { return 45 }
+        return 15
     }
     private static func congestionScore(_ value: String?) -> Double {
         ["Low": 100, "Medium": 70, "High": 35, "Severe": 5][value ?? ""] ?? 40
@@ -280,11 +703,39 @@ struct SurveyPoint: Codable, Identifiable {
 struct AreaLandmark: Codable, Identifiable {
     let id: UUID
     var name: String
-    let x: Double
-    let y: Double
-    let z: Double
+    var x: Double
+    var y: Double
+    var z: Double
     var floorId: UUID?
     var assignedNodeIds: [String]
+    var isMapped: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, x, y, z, floorId, assignedNodeIds, isMapped
+    }
+
+    init(id: UUID, name: String, x: Double, y: Double, z: Double, floorId: UUID?, assignedNodeIds: [String], isMapped: Bool = true) {
+        self.id = id
+        self.name = name
+        self.x = x
+        self.y = y
+        self.z = z
+        self.floorId = floorId
+        self.assignedNodeIds = assignedNodeIds
+        self.isMapped = isMapped
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        x = try container.decode(Double.self, forKey: .x)
+        y = try container.decode(Double.self, forKey: .y)
+        z = try container.decode(Double.self, forKey: .z)
+        floorId = try container.decodeIfPresent(UUID.self, forKey: .floorId)
+        assignedNodeIds = try container.decodeIfPresent([String].self, forKey: .assignedNodeIds) ?? []
+        isMapped = try container.decodeIfPresent(Bool.self, forKey: .isMapped) ?? true
+    }
 
     func distance(to other: AreaLandmark) -> Double {
         sqrt(pow(x - other.x, 2) + pow(y - other.y, 2) + pow(z - other.z, 2))

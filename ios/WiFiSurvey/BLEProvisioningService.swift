@@ -188,8 +188,21 @@ final class BLEProvisioningService: NSObject, ObservableObject {
         } else {
             linkState = .searching
             central.stopScan()
-            central.scanForPeripherals(withServices: [Self.serviceUUID], options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
+            central.scanForPeripherals(
+                withServices: nil,
+                options: [CBCentralManagerScanOptionAllowDuplicatesKey: false]
+            )
         }
+    }
+
+    private func acceptsDiscoveredPeripheral(_ peripheral: CBPeripheral, advertisementData: [String: Any]) -> Bool {
+        let advertisedServices = advertisementData[CBAdvertisementDataServiceUUIDsKey] as? [CBUUID] ?? []
+        if advertisedServices.contains(Self.serviceUUID) {
+            return true
+        }
+
+        let advertisedName = advertisementData[CBAdvertisementDataLocalNameKey] as? String
+        return advertisedName?.hasPrefix("WiFi Survey") == true || peripheral.name?.hasPrefix("WiFi Survey") == true
     }
 
     private func connect(to peripheral: CBPeripheral) {
@@ -363,6 +376,7 @@ extension BLEProvisioningService: CBCentralManagerDelegate {
     nonisolated func centralManager(_ central: CBCentralManager, didDiscover peripheral: CBPeripheral, advertisementData: [String: Any], rssi RSSI: NSNumber) {
         Task { @MainActor in
             guard peripheral.identifier != excludedPeripheralId else { return }
+            guard acceptsDiscoveredPeripheral(peripheral, advertisementData: advertisementData) else { return }
             log("discovered \(peripheral.name ?? peripheral.identifier.uuidString), RSSI \(RSSI)")
             discovered[peripheral.identifier] = peripheral
             if defaults.string(forKey: "pairedESP") != nil {
