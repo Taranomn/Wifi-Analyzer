@@ -3081,6 +3081,8 @@ private struct UtilityTile<Destination: View>: View {
 
 private struct SignalAnalyzerUtilityView: View {
     @EnvironmentObject private var store: SurveyStore
+    @EnvironmentObject private var bluetooth: BLEProvisioningService
+    @State private var showingRecord = false
 
     var body: some View {
         ZStack {
@@ -3108,6 +3110,17 @@ private struct SignalAnalyzerUtilityView: View {
                         }
                         .buttonStyle(.plain)
                     } else {
+                        SmartGlassCard {
+                            VStack(alignment: .leading, spacing: 10) {
+                                Text("Assign ESP Devices")
+                                    .font(.headline)
+                                    .foregroundStyle(.white)
+                                Text("This project already has mapped area points. Tap or press and hold an area, then place the active ESP or choose a saved device for that area.")
+                                    .font(.caption)
+                                    .foregroundStyle(SmartTheme.muted)
+                            }
+                        }
+
                         AreaLandmarkMapView(
                             buildingFloors: store.buildingFloors,
                             landmarks: store.mappedAreaLandmarks,
@@ -3115,16 +3128,18 @@ private struct SignalAnalyzerUtilityView: View {
                             devices: store.devices,
                             phoneTester: store.phoneTester,
                             phoneResults: store.phoneNetworkSamples,
+                            onAction: handleAreaMapAction,
                             selectedAreaId: $store.selectedAreaId
                         )
                         .environmentObject(store)
 
-                        SmartGlassCard {
-                            VStack(alignment: .leading, spacing: 10) {
-                                Text("Live signal map")
-                                    .font(.headline)
-                                    .foregroundStyle(.white)
-                                Text("Tap an area point to inspect current signal, phone samples, assigned ESP devices, and project measurements.")
+                        if let area = store.selectedArea {
+                            AreaResultsView(area: area)
+                                .environmentObject(store)
+                                .environmentObject(bluetooth)
+                        } else {
+                            SmartGlassCard {
+                                Text("Select an area point to see assigned ESP devices, phone samples, and recommendations.")
                                     .font(.caption)
                                     .foregroundStyle(SmartTheme.muted)
                             }
@@ -3138,6 +3153,26 @@ private struct SignalAnalyzerUtilityView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .preferredColorScheme(.dark)
+        .sheet(isPresented: $showingRecord) {
+            RecordPointView(isPresented: $showingRecord)
+                .environmentObject(store)
+                .environmentObject(bluetooth)
+        }
+    }
+
+    private func handleAreaMapAction(_ area: AreaLandmark, _ action: AreaMapAction) {
+        store.selectedAreaId = area.id
+        switch action {
+        case .viewDetails:
+            break
+        case .recordESPMeasurement:
+            showingRecord = true
+        case .analyzeWithIPhone:
+            store.message = "Open Wi-Fi Internet Test to collect iPhone-only internet results. ESP area assignment stays here in Signal Analyzer."
+        case .assignActiveESP:
+            store.assignCurrentNodeToArea(bluetooth.deviceStatus.nodeId)
+            store.message = "Assigned \(bluetooth.deviceStatus.nodeId) to \(area.name)."
+        }
     }
 }
 

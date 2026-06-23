@@ -62,6 +62,33 @@ The `uploadfs` step uploads the offline dashboard from `data/` into LittleFS.
 
 The project uses PlatformIO's generic `esp32dev` target, which is normally correct for ESP-WROOM-32D and ESP32 DevKit boards. If uploading stalls, hold the board's **BOOT** button, tap **EN/RESET**, start upload, then release **BOOT** when writing begins.
 
+Available firmware targets:
+
+- `esp32dev` for ESP-WROOM-32D / common ESP32 development boards.
+- `esp32-s3-devkitc-1` for ESP32-S3 development boards.
+- `esp01s` for ESP-01S / ESP8266 boards.
+
+### ESP-01S / ESP8266 firmware
+
+ESP-01S boards can run the HTTP setup and Wi-Fi analyzer APIs, but they do not support the BLE pairing flow used by ESP32 boards.
+
+To build and flash an ESP-01S from another computer:
+
+```sh
+pio run -e esp01s
+pio run -e esp01s --target upload
+pio run -e esp01s --target uploadfs
+pio device monitor -b 115200
+```
+
+After flashing an ESP-01S:
+
+1. Power on the board.
+2. Join the fallback setup network `WiFi-Survey-Setup`.
+3. Open `http://192.168.4.1`.
+4. Select the router Wi-Fi and save credentials.
+5. After the board joins the router, add it in the app through the ESP/device tools by using its local IP.
+
 After flashing:
 
 1. Turn on Bluetooth on the iPhone and power on the ESP32.

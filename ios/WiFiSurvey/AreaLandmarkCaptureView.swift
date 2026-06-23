@@ -9,6 +9,7 @@ struct AreaLandmarkCaptureView: View {
     @State private var markRequest: LandmarkMarkRequest?
     @State private var finishToken = 0
     @State private var landmarks: [AreaLandmark] = []
+    @State private var pendingMarkName: String?
     @State private var status = "Move slowly until tracking is ready."
     private let accent = Color(red: 0.08, green: 0.82, blue: 0.95)
     private let primary = Color(red: 0.22, green: 0.43, blue: 1.0)
@@ -17,6 +18,10 @@ struct AreaLandmarkCaptureView: View {
     var body: some View {
         ZStack {
             AreaLandmarkCaptureContainer(markRequest: markRequest, finishToken: finishToken) { spots, text in
+                if spots.count > landmarks.count, spots.last?.name == pendingMarkName {
+                    areaName = ""
+                    pendingMarkName = nil
+                }
                 landmarks = spots
                 status = text
             } onComplete: { spots in
@@ -76,8 +81,8 @@ struct AreaLandmarkCaptureView: View {
                         let trimmed = areaName.trimmingCharacters(in: .whitespacesAndNewlines)
                         guard !trimmed.isEmpty else { return }
                         guard let selectedFloorId else { return }
+                        pendingMarkName = trimmed
                         markRequest = LandmarkMarkRequest(id: UUID(), name: trimmed, floorId: selectedFloorId)
-                        areaName = ""
                     } label: {
                         Label("Mark Area at Reticle", systemImage: "mappin.and.ellipse")
                             .frame(maxWidth: .infinity)

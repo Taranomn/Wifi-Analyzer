@@ -1,12 +1,21 @@
 #include <Arduino.h>
 #include <ArduinoJson.h>
+
+#if defined(ESP8266)
+#include <ESP8266HTTPClient.h>
+#include <ESP8266Ping.h>
+#include <ESP8266WebServer.h>
+#include <ESP8266WiFi.h>
 #include <LittleFS.h>
-#include <NimBLEDevice.h>
+#else
 #include <ESP32Ping.h>
 #include <HTTPClient.h>
+#include <LittleFS.h>
+#include <NimBLEDevice.h>
 #include <Preferences.h>
 #include <WebServer.h>
 #include <WiFi.h>
+#endif
 
 namespace {
 
@@ -18,8 +27,12 @@ constexpr char kBleServiceUuid[] = "7a1f0001-8d79-4f25-bc40-5c7d17f62a11";
 constexpr char kBleCommandUuid[] = "7a1f0002-8d79-4f25-bc40-5c7d17f62a11";
 constexpr char kBleEventUuid[] = "7a1f0003-8d79-4f25-bc40-5c7d17f62a11";
 
+#if defined(ESP8266)
+ESP8266WebServer server(80);
+#else
 WebServer server(80);
 Preferences preferences;
+#endif
 String savedSsid;
 String savedPassword;
 String nodeId;
@@ -57,7 +70,9 @@ float minPingMs = 0;
 float maxPingMs = 0;
 String bleRequestedSsid;
 String bleRequestedPassword;
+#if !defined(ESP8266)
 NimBLECharacteristic *bleEventCharacteristic = nullptr;
+#endif
 
 String qualityLabel(int32_t rssi) {
   if (rssi >= -55) return "Excellent";
@@ -65,6 +80,14 @@ String qualityLabel(int32_t rssi) {
   if (rssi >= -75) return "Fair";
   if (rssi >= -85) return "Weak";
   return "Very Weak";
+}
+
+bool networkIsSecure(uint8_t index) {
+#if defined(ESP8266)
+  return WiFi.encryptionType(index) != ENC_TYPE_NONE;
+#else
+  return WiFi.encryptionType(index) != WIFI_AUTH_OPEN;
+#endif
 }
 
 void runPacketLossTest(int attempts = 5) {
@@ -102,6 +125,52 @@ void addNetworkMetrics(T &doc) {
   doc["averagePingMs"] = averagePingMs;
   doc["minPingMs"] = minPingMs;
   doc["maxPingMs"] = maxPingMs;
+}
+
+void loadCredentials() {
+#if defined(ESP8266)
+  if (!LittleFS.exists("/wifi.json")) return;
+  File file = LittleFS.open("/wifi.json", "r");
+  if (!file) return;
+  JsonDocument doc;
+  if (!deserializeJson(doc, file)) {
+    savedSsid = doc["ssid"] | "";
+    savedPassword = doc["password"] | "";
+  }
+  file.close();
+#else
+  preferences.begin(kPreferencesNamespace, false);
+  savedSsid = preferences.getString("ssid", "");
+  savedPassword = preferences.getString("password", "");
+#endif
+}
+
+void saveCredentials(const String &ssid, const String &password) {
+  savedSsid = ssid;
+  savedPassword = password;
+#if defined(ESP8266)
+  JsonDocument doc;
+  doc["ssid"] = ssid;
+  doc["password"] = password;
+  File file = LittleFS.open("/wifi.json", "w");
+  if (file) {
+    serializeJson(doc, file);
+    file.close();
+  }
+#else
+  preferences.putString("ssid", ssid);
+  preferences.putString("password", password);
+#endif
+}
+
+void clearCredentials() {
+  savedSsid = "";
+  savedPassword = "";
+#if defined(ESP8266)
+  if (LittleFS.exists("/wifi.json")) LittleFS.remove("/wifi.json");
+#else
+  preferences.clear();
+#endif
 }
 
 String contentTypeFor(const String &path) {
@@ -157,6 +226,10 @@ void beginConnection(const String &ssid, const String &password) {
 }
 
 void notifyBle(const JsonDocument &doc) {
+#if defined(ESP8266)
+  (void)doc;
+  return;
+#else
   if (!bleEventCharacteristic) return;
   String body;
   serializeJson(doc, body);
@@ -171,6 +244,7 @@ void notifyBle(const JsonDocument &doc) {
     bleEventCharacteristic->notify();
     delay(18);
   }
+#endif
 }
 
 void notifyBleState(const char *type) {
@@ -219,6 +293,9 @@ void notifyDiagnostics(const char *type = "diagnostics") {
 }
 
 void scanNetworksForBle() {
+#if defined(ESP8266)
+  return;
+#else
   JsonDocument started;
   started["type"] = "scan_started";
   notifyBle(started);
@@ -231,7 +308,7 @@ void scanNetworksForBle() {
     doc["bssid"] = WiFi.BSSIDstr(i);
     doc["rssi"] = WiFi.RSSI(i);
     doc["channel"] = WiFi.channel(i);
-    doc["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+    doc["secure"] = networkIsSecure(i);
     notifyBle(doc);
   }
   WiFi.scanDelete();
@@ -239,8 +316,10 @@ void scanNetworksForBle() {
   JsonDocument finished;
   finished["type"] = "scan_complete";
   notifyBle(finished);
+#endif
 }
 
+#if !defined(ESP8266)
 class BleCommandCallbacks : public NimBLECharacteristicCallbacks {
   void onWrite(NimBLECharacteristic *characteristic) override {
     const std::string value = characteristic->getValue();
@@ -299,6 +378,11 @@ void configureBle() {
   advertising->start();
   Serial.printf("Bluetooth provisioning: %s\n", deviceName.c_str());
 }
+#else
+void configureBle() {
+  Serial.println("BLE provisioning is not available on ESP01S/ESP8266; use Wi-Fi setup AP or HTTP APIs.");
+}
+#endif
 
 void handleStatus() {
   JsonDocument doc;
@@ -494,7 +578,7 @@ void handleScan() {
     network["rssi"] = WiFi.RSSI(i);
     network["quality_label"] = qualityLabel(WiFi.RSSI(i));
     network["channel"] = WiFi.channel(i);
-    network["secure"] = WiFi.encryptionType(i) != WIFI_AUTH_OPEN;
+    network["secure"] = networkIsSecure(i);
   }
   WiFi.scanDelete();
   sendJson(doc);
@@ -515,8 +599,7 @@ void handleConnect() {
 
   const String ssid = request["ssid"].as<String>();
   const String password = request["password"] | "";
-  preferences.putString("ssid", ssid);
-  preferences.putString("password", password);
+  saveCredentials(ssid, password);
   beginConnection(ssid, password);
 
   JsonDocument response;
@@ -527,9 +610,7 @@ void handleConnect() {
 }
 
 void handleResetWifi() {
-  preferences.clear();
-  savedSsid = "";
-  savedPassword = "";
+  clearCredentials();
   WiFi.disconnect(true);
 
   JsonDocument response;
@@ -579,19 +660,27 @@ void setup() {
   Serial.begin(115200);
   bootMillis = millis();
   pinMode(kIdentifyLedPin, OUTPUT);
+#if defined(ESP8266)
+  const uint32_t chipId = ESP.getChipId();
+  char nodeBuffer[18];
+  snprintf(nodeBuffer, sizeof(nodeBuffer), "ESP01S-%06X", chipId & 0xFFFFFF);
+#else
   const uint64_t chipId = ESP.getEfuseMac();
   char nodeBuffer[16];
   snprintf(nodeBuffer, sizeof(nodeBuffer), "ESP32-%06llX", chipId & 0xFFFFFF);
+#endif
   nodeId = nodeBuffer;
   Serial.printf("Node ID: %s\n", nodeId.c_str());
 
+#if defined(ESP8266)
+  if (!LittleFS.begin()) {
+#else
   if (!LittleFS.begin(true)) {
+#endif
     Serial.println("LittleFS mount failed");
   }
 
-  preferences.begin(kPreferencesNamespace, false);
-  savedSsid = preferences.getString("ssid", "");
-  savedPassword = preferences.getString("password", "");
+  loadCredentials();
 
   WiFi.mode(WIFI_AP_STA);
   WiFi.softAP(kSetupSsid);
@@ -636,7 +725,12 @@ void loop() {
     String body;
     serializeJson(report, body);
     HTTPClient http;
+#if defined(ESP8266)
+    WiFiClient client;
+    http.begin(client, "http://" + planningCoordinatorIp + "/api/planning/result");
+#else
     http.begin("http://" + planningCoordinatorIp + "/api/planning/result");
+#endif
     http.addHeader("Content-Type", "application/json");
     const int response = http.POST(body);
     http.end();
@@ -666,8 +760,7 @@ void loop() {
 
   if (bleConnectRequested) {
     bleConnectRequested = false;
-    preferences.putString("ssid", bleRequestedSsid);
-    preferences.putString("password", bleRequestedPassword);
+    saveCredentials(bleRequestedSsid, bleRequestedPassword);
     beginConnection(bleRequestedSsid, bleRequestedPassword);
     notifyBleState("connecting");
   }
