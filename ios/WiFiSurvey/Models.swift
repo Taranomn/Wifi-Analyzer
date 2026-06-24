@@ -83,6 +83,9 @@ struct SurveyDevice: Codable, Identifiable {
     var id: String { nodeId }
     let nodeId: String
     var host: String
+    var source: String?
+    var hubHost: String?
+    var childIp: String?
     var connected: Bool
     var ssid: String
     var rssi: Int?
@@ -95,6 +98,40 @@ struct SurveyDevice: Codable, Identifiable {
     var maxPingMs: Double?
     var localSpeedMbps: Double?
     var channelCongestion: String?
+}
+
+struct HubDevicesResponse: Codable {
+    let devices: [HubDeviceStatus]
+}
+
+struct HubDeviceStatus: Codable, Identifiable {
+    var id: String { nodeId }
+    let nodeId: String
+    let connected: Bool
+    let connectionStatus: String
+    let ssid: String
+    let bssid: String
+    let rssi: Int?
+    let qualityLabel: String
+    let channel: Int
+    let localIp: String
+    let packetLossPercent: Double?
+    let averagePingMs: Double?
+    let minPingMs: Double?
+    let maxPingMs: Double?
+    let ageSeconds: Int?
+
+    enum CodingKeys: String, CodingKey {
+        case nodeId = "node_id"
+        case connected
+        case connectionStatus = "connection_status"
+        case ssid, bssid, rssi
+        case qualityLabel = "quality_label"
+        case channel
+        case localIp = "local_ip"
+        case packetLossPercent, averagePingMs, minPingMs, maxPingMs
+        case ageSeconds = "age_seconds"
+    }
 }
 
 struct PhoneTesterStatus {

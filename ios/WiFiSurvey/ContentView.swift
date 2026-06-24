@@ -607,6 +607,7 @@ private struct ProjectMetrics {
 
 private struct ProjectAreasView: View {
     @EnvironmentObject private var store: SurveyStore
+    @EnvironmentObject private var bluetooth: BLEProvisioningService
     @Environment(\.dismiss) private var dismiss
     let projectId: UUID
     @State private var showingAddArea = false
@@ -674,6 +675,10 @@ private struct ProjectAreasView: View {
                     case "All Tasks":
                         ProjectTaskListView(title: "All Tasks", tasks: store.siteTasks)
                             .environmentObject(store)
+                    case "Wi-Fi Analyzer":
+                        SignalAnalyzerUtilityView()
+                            .environmentObject(store)
+                            .environmentObject(bluetooth)
                     default:
                         VStack(spacing: 12) {
                             if !store.siteTasks.filter({ $0.areaId == nil }).isEmpty {
@@ -750,7 +755,7 @@ private struct ProjectAreasView: View {
     private var projectSectionPicker: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
-                ForEach(["Areas", "All Tasks", "Equipment", "Files", "Final Check", "Passwords"], id: \.self) { section in
+                ForEach(["Areas", "All Tasks", "Wi-Fi Analyzer", "Equipment", "Files", "Final Check", "Passwords"], id: \.self) { section in
                     Button {
                         withAnimation(.spring(response: 0.25, dampingFraction: 0.86)) {
                             selectedProjectSection = section
@@ -5774,7 +5779,7 @@ private struct AreaResultsView: View {
                     Image(systemName: "memorychip")
                     VStack(alignment: .leading) {
                         Text(device.nodeId).font(.subheadline.bold())
-                        Text(device.connected ? "\(device.host) · Channel \(device.channel)" : "Offline")
+                        Text(device.connected ? "\(device.source == "hub" ? "Hub" : "Direct") · \(device.host) · Channel \(device.channel)" : "Offline")
                             .font(.caption).foregroundStyle(.secondary)
                     }
                     Spacer()
@@ -5782,6 +5787,22 @@ private struct AreaResultsView: View {
                         Text("\(ProfessionalScore.device(device))").font(.headline)
                         Text(device.rssi.map { "\($0) dBm" } ?? "--").font(.caption)
                     }
+                    Button {
+                        Task {
+                            do {
+                                if device.source == "hub", let hubHost = device.hubHost {
+                                    try await ESPService(host: hubHost).identifyHubChild(nodeId: device.nodeId)
+                                } else {
+                                    try await ESPService(host: device.host).identify()
+                                }
+                            } catch {
+                                store.message = "Could not identify \(device.nodeId)."
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "light.beacon.max")
+                    }
+                    .buttonStyle(.borderless)
                 }
             }
 
@@ -6037,6 +6058,7 @@ private struct MeasurementsView: View {
 private struct SettingsView: View {
     @EnvironmentObject private var store: SurveyStore
     @EnvironmentObject private var bluetooth: BLEProvisioningService
+    @State private var showingAddDevice = false
 
     var body: some View {
         NavigationStack {
@@ -6052,7 +6074,7 @@ private struct SettingsView: View {
                                 .foregroundStyle(device.connected ? .green : .secondary)
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(device.nodeId).font(.headline)
-                                Text(device.host)
+                                Text(device.source == "hub" ? "Via hub \(device.hubHost ?? "") · \(device.childIp ?? device.host)" : device.host)
                                     .font(.caption).foregroundStyle(.secondary)
                             }
                             Spacer()
@@ -6080,13 +6102,74 @@ private struct SettingsView: View {
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
                     Button {
-                        bluetooth.addAnotherDevice()
+                        showingAddDevice = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
             }
+            .sheet(isPresented: $showingAddDevice) {
+                AddESPDeviceView()
+                    .environmentObject(store)
+                    .environmentObject(bluetooth)
+            }
             .task { await bluetooth.refreshPreferredStatus() }
+        }
+    }
+}
+
+private struct AddESPDeviceView: View {
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var store: SurveyStore
+    @EnvironmentObject private var bluetooth: BLEProvisioningService
+    @State private var host = "192.168.4.1"
+    @State private var isAdding = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("ESP32-WROOM Hub") {
+                    Text("Use Bluetooth for the ESP32-WROOM hub. After it is added, ESP-01S boards connected to its SmartAV hub network appear automatically.")
+                    Button {
+                        bluetooth.addAnotherDevice()
+                        dismiss()
+                    } label: {
+                        Label("Find ESP32-WROOM by Bluetooth", systemImage: "dot.radiowaves.left.and.right")
+                    }
+                }
+
+                Section("Manual IP") {
+                    TextField("192.168.4.1 or local IP", text: $host)
+                        .keyboardType(.numbersAndPunctuation)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    Button {
+                        Task { await addByIP() }
+                    } label: {
+                        Label(isAdding ? "Adding..." : "Add Device or Hub by IP", systemImage: "network")
+                    }
+                    .disabled(isAdding)
+                    Text("Use this for an ESP32 hub, an ESP-01S setup AP, or a board that is already on the same Wi-Fi as the phone.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Add ESP Device")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+            }
+        }
+    }
+
+    private func addByIP() async {
+        isAdding = true
+        defer { isAdding = false }
+        await store.addDevice(host: host)
+        if store.message?.contains("added") == true {
+            dismiss()
         }
     }
 }
@@ -6139,7 +6222,13 @@ private struct DeviceDetailView: View {
                 Section {
                     Button {
                         Task {
-                            do { try await ESPService(host: device.host).identify() }
+                            do {
+                                if device.source == "hub", let hubHost = device.hubHost {
+                                    try await ESPService(host: hubHost).identifyHubChild(nodeId: device.nodeId)
+                                } else {
+                                    try await ESPService(host: device.host).identify()
+                                }
+                            }
                             catch { store.message = "Could not identify this offline device." }
                         }
                     } label: {

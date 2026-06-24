@@ -445,10 +445,13 @@ This mode is for ESP boards used as Wi-Fi testers.
 
 Current behavior:
 
+- Project screens include a **Wi-Fi Analyzer** section beside areas, tasks, equipment, files, final check, and passwords.
 - If the selected project already has mapped area points, the user can assign ESP devices to areas and inspect area results.
 - If the project does not have mapped area points, the user can scan/mark locations first.
 - If AR marking fails, the typed area name is preserved and an error/status is shown, so the user can retry or choose another location without retyping.
 - Existing mapped points can be tapped or long-pressed for area actions.
+- Area result cards include an identify/blink button for assigned ESP devices.
+- Utilities -> Devices has an add-device flow for Bluetooth ESP32-WROOM pairing or manual IP entry.
 
 The Signal Analyzer is where ESP board measurements connect to project areas.
 
@@ -600,6 +603,11 @@ ESP32-only behavior:
 - Nearby-device prompt in the iOS app.
 - App can send selected router credentials over BLE.
 - BLE fallback can be used when Wi-Fi communication is lost.
+- ESP32-WROOM acts as the Smart AV hub for ESP-01S satellite testers.
+- The hub starts an AP named `SmartAV-Hub-xxxxxx` with password `smartavhub`.
+- ESP-01S boards can join this hub AP and periodically register/report status to the ESP32.
+- The app can add the ESP32 hub once, then see registered ESP-01S boards through the hub.
+- Identify commands for ESP-01S boards can be proxied through the hub.
 
 ESP-01S / ESP8266 behavior:
 
@@ -607,6 +615,39 @@ ESP-01S / ESP8266 behavior:
 - Uses the setup AP and HTTP dashboard/API flow.
 - Can still run the Wi-Fi analyzer/status APIs.
 - Device node ID is generated as `ESP01S-xxxxxx`.
+- When connected to an ESP32 hub AP, it posts its status to the hub every few seconds.
+- If the hub is not available later, the ESP-01S can still be accessed directly by IP when the phone is on the same network or by using its fallback setup AP.
+
+## ESP32 Hub + ESP-01S Satellite Workflow
+
+Target hardware for this mode:
+
+- One ESP32-WROOM as the hub/coordinator.
+- One or more ESP-01S boards as small room testers.
+
+High-level flow:
+
+1. Flash the ESP32-WROOM with the `esp32dev` firmware.
+2. The ESP32 starts a hub AP named like `SmartAV-Hub-459B58`.
+3. Flash each ESP-01S with the `esp01s` firmware from the other laptop.
+4. For each ESP-01S, join its setup AP `WiFi-Survey-Setup`.
+5. Open `http://192.168.4.1`.
+6. Connect the ESP-01S to the ESP32 hub SSID.
+7. Password is `smartavhub`.
+8. The ESP-01S registers itself with the ESP32 hub automatically.
+9. In the app, open Utilities -> Devices -> plus.
+10. Add the ESP32-WROOM hub through Bluetooth or manual IP.
+11. The app pulls child ESP-01S devices from `/api/hub/devices`.
+12. Open a project -> Wi-Fi Analyzer.
+13. If there is no signal map, create one by marking the center of each area and choosing the correct floor.
+14. If there is already a map, place each ESP device into the correct area.
+15. Tap identify beside a device to blink the physical board before assigning/moving it.
+
+Important limitation:
+
+- ESP-01S has no Bluetooth. It cannot pair directly with the iPhone like an ESP32.
+- The implemented fallback is saved direct IP/setup AP access, not BLE pairing.
+- The phone can reach ESP-01S directly only when it is on the same network as the ESP-01S or connected to that ESP-01S fallback AP.
 
 ## ESP API
 
@@ -623,6 +664,9 @@ ESP-01S / ESP8266 behavior:
 | `GET` | `/api/scan` | Nearby Wi-Fi network scan |
 | `POST` | `/api/connect` | Save `{ "ssid", "password" }` and connect to router |
 | `POST` | `/api/reset-wifi` | Clear saved credentials |
+| `POST` | `/api/hub/register` | ESP-01S child posts status to ESP32 hub |
+| `GET` | `/api/hub/devices` | App reads ESP-01S devices registered with ESP32 hub |
+| `POST` | `/api/hub/identify` | App asks ESP32 hub to blink a child ESP-01S |
 | `POST` | `/api/planning/start` | Start AP planning coordinator mode |
 | `POST` | `/api/planning/join` | Join planning mode as another ESP |
 | `POST` | `/api/planning/result` | Post planning measurement result to coordinator |
@@ -694,8 +738,11 @@ If an ESP-01S is used:
 2. Power cycle normally.
 3. Join `WiFi-Survey-Setup` from phone or computer.
 4. Open `http://192.168.4.1`.
-5. Connect it to the router Wi-Fi.
-6. Add the device in the app by local IP once it joins the router.
+5. To use hub mode, connect it to the ESP32 hub SSID, for example `SmartAV-Hub-459B58`.
+6. Use password `smartavhub`.
+7. After it joins, it registers with the ESP32 hub automatically.
+8. In the app, add the ESP32 hub. The ESP-01S boards should appear under Devices after the next refresh.
+9. For direct fallback mode, connect the ESP-01S to any normal router Wi-Fi and add it in the app by local IP.
 
 ## Installing the iOS App
 

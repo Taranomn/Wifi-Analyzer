@@ -651,6 +651,39 @@ final class SurveyStore: ObservableObject {
         Self.save(areaLandmarks, key: "areaLandmarks")
     }
 
+    func addDevice(host: String) async {
+        let cleanHost = host
+            .replacingOccurrences(of: "http://", with: "")
+            .replacingOccurrences(of: "https://", with: "")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/ "))
+        guard !cleanHost.isEmpty else {
+            message = "Enter the ESP IP address first."
+            return
+        }
+        do {
+            let status = try await ESPService(host: cleanHost).status()
+            upsertDevice(
+                nodeId: status.nodeId,
+                host: status.localIp.isEmpty ? cleanHost : status.localIp,
+                connected: status.connected,
+                ssid: status.ssid,
+                rssi: status.rssi,
+                quality: status.qualityLabel,
+                channel: status.channel,
+                loss: status.packetLossPercent,
+                ping: status.averagePingMs,
+                minPing: status.minPingMs,
+                maxPing: status.maxPingMs,
+                source: "direct"
+            )
+            await refreshHubChildren(from: status.localIp.isEmpty ? cleanHost : status.localIp)
+            updateCurrentLocationSnapshot()
+            message = "\(status.nodeId) added."
+        } catch {
+            message = "Could not reach an ESP device at \(cleanHost)."
+        }
+    }
+
     func deviceResults(in area: AreaLandmark) -> [SurveyDevice] {
         devices.filter { area.assignedNodeIds.contains($0.nodeId) }
     }
@@ -1026,8 +1059,12 @@ final class SurveyStore: ObservableObject {
                     quality: status.qualityLabel, channel: status.channel,
                     loss: diagnostics.packetLossPercent, ping: diagnostics.averagePingMs,
                     minPing: diagnostics.minPingMs, maxPing: diagnostics.maxPingMs,
-                    congestion: channel.currentChannelCongestion, speed: speed
+                    congestion: channel.currentChannelCongestion, speed: speed,
+                    source: device.source, hubHost: device.hubHost, childIp: device.childIp
                 )
+                if status.nodeId.hasPrefix("ESP32") {
+                    await refreshHubChildren(from: status.localIp.isEmpty ? device.host : status.localIp)
+                }
             } catch {
                 if let index = devices.firstIndex(where: { $0.nodeId == device.nodeId }) {
                     devices[index].connected = false
@@ -1035,6 +1072,29 @@ final class SurveyStore: ObservableObject {
             }
         }
         Self.save(devices, key: "surveyDevices")
+    }
+
+    private func refreshHubChildren(from hubHost: String) async {
+        guard !hubHost.isEmpty else { return }
+        guard let children = try? await ESPService(host: hubHost).hubDevices() else { return }
+        for child in children {
+            upsertDevice(
+                nodeId: child.nodeId,
+                host: child.localIp.isEmpty ? hubHost : child.localIp,
+                connected: child.connected,
+                ssid: child.ssid,
+                rssi: child.rssi,
+                quality: child.qualityLabel,
+                channel: child.channel,
+                loss: child.packetLossPercent,
+                ping: child.averagePingMs,
+                minPing: child.minPingMs,
+                maxPing: child.maxPingMs,
+                source: "hub",
+                hubHost: hubHost,
+                childIp: child.localIp
+            )
+        }
     }
 
     private func refreshPhoneTester() async {
@@ -1065,10 +1125,14 @@ final class SurveyStore: ObservableObject {
         }
     }
 
-    private func upsertDevice(nodeId: String, host: String, connected: Bool, ssid: String, rssi: Int?, quality: String, channel: Int, loss: Double? = nil, ping: Double? = nil, minPing: Double? = nil, maxPing: Double? = nil, congestion: String? = nil, speed: Double? = nil) {
+    private func upsertDevice(nodeId: String, host: String, connected: Bool, ssid: String, rssi: Int?, quality: String, channel: Int, loss: Double? = nil, ping: Double? = nil, minPing: Double? = nil, maxPing: Double? = nil, congestion: String? = nil, speed: Double? = nil, source: String? = nil, hubHost: String? = nil, childIp: String? = nil) {
         let previous = devices.first { $0.nodeId == nodeId }
         let device = SurveyDevice(
-            nodeId: nodeId, host: host, connected: connected, ssid: ssid, rssi: rssi,
+            nodeId: nodeId, host: host,
+            source: source ?? previous?.source,
+            hubHost: hubHost ?? previous?.hubHost,
+            childIp: childIp ?? previous?.childIp,
+            connected: connected, ssid: ssid, rssi: rssi,
             qualityLabel: quality, channel: channel, lastSeen: Date(),
             packetLossPercent: loss ?? previous?.packetLossPercent,
             averagePingMs: ping ?? previous?.averagePingMs,

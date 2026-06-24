@@ -20,6 +20,7 @@
 namespace {
 
 constexpr char kSetupSsid[] = "WiFi-Survey-Setup";
+constexpr char kHubPassword[] = "smartavhub";
 constexpr char kPreferencesNamespace[] = "wifi-survey";
 constexpr uint32_t kConnectTimeoutMs = 15000;
 constexpr uint8_t kIdentifyLedPin = 2;
@@ -61,6 +62,23 @@ struct PlanningResult {
 };
 PlanningResult planningResults[8];
 size_t planningResultCount = 0;
+struct HubChild {
+  String node;
+  String ip;
+  String ssid;
+  String bssid;
+  int rssi = -127;
+  int channel = 0;
+  bool connected = false;
+  float packetLossPercent = 100;
+  float averagePingMs = 0;
+  float minPingMs = 0;
+  float maxPingMs = 0;
+  uint32_t lastSeen = 0;
+};
+HubChild hubChildren[12];
+size_t hubChildCount = 0;
+uint32_t lastHubRegisterAt = 0;
 uint32_t lastPingTestAt = 0;
 int pingPacketsSent = 0;
 int pingPacketsReceived = 0;
@@ -125,6 +143,10 @@ void addNetworkMetrics(T &doc) {
   doc["averagePingMs"] = averagePingMs;
   doc["minPingMs"] = minPingMs;
   doc["maxPingMs"] = maxPingMs;
+}
+
+String hubSsid() {
+  return "SmartAV-Hub-" + nodeId.substring(max(0, static_cast<int>(nodeId.length()) - 6));
 }
 
 void loadCredentials() {
@@ -210,7 +232,12 @@ void addStatus(T &doc) {
   doc["local_ip"] = connected ? WiFi.localIP().toString() : "";
   doc["setup_ip"] = WiFi.softAPIP().toString();
   doc["uptime_seconds"] = (millis() - bootMillis) / 1000;
+#if !defined(ESP8266)
+  doc["ap_ssid"] = hubSsid();
+  doc["hub_ssid"] = hubSsid();
+#else
   doc["ap_ssid"] = kSetupSsid;
+#endif
   doc["ap_clients"] = WiFi.softAPgetStationNum();
   addNetworkMetrics(doc);
 }
@@ -473,6 +500,115 @@ void handleIdentify() {
   server.send(202, "application/json", R"({"ok":true,"message":"Identification started"})");
 }
 
+void handleHubRegister() {
+#if defined(ESP8266)
+  server.send(404, "application/json", R"({"error":"Hub registration is only accepted by the ESP32 hub"})");
+#else
+  JsonDocument request;
+  if (!server.hasArg("plain") || deserializeJson(request, server.arg("plain"))) {
+    server.send(400, "application/json", R"({"error":"Valid JSON body required"})");
+    return;
+  }
+  const String childNode = request["node_id"] | "";
+  if (childNode.isEmpty()) {
+    server.send(400, "application/json", R"({"error":"node_id is required"})");
+    return;
+  }
+
+  size_t index = hubChildCount;
+  for (size_t i = 0; i < hubChildCount; ++i) {
+    if (hubChildren[i].node == childNode) index = i;
+  }
+  if (index == hubChildCount && hubChildCount < 12) ++hubChildCount;
+  if (index >= 12) {
+    server.send(507, "application/json", R"({"error":"Hub child registry is full"})");
+    return;
+  }
+
+  HubChild &child = hubChildren[index];
+  child.node = childNode;
+  child.ip = request["local_ip"] | server.client().remoteIP().toString();
+  child.ssid = request["ssid"] | "";
+  child.bssid = request["bssid"] | "";
+  child.rssi = request["rssi"] | -127;
+  child.channel = request["channel"] | 0;
+  child.connected = request["connected"] | false;
+  child.packetLossPercent = request["packetLossPercent"] | 100;
+  child.averagePingMs = request["averagePingMs"] | 0;
+  child.minPingMs = request["minPingMs"] | 0;
+  child.maxPingMs = request["maxPingMs"] | 0;
+  child.lastSeen = millis();
+  server.send(200, "application/json", R"({"ok":true})");
+#endif
+}
+
+void addHubChildStatus(JsonObject item, const HubChild &child) {
+  const bool fresh = millis() - child.lastSeen < 45000;
+  item["node_id"] = child.node;
+  item["connected"] = child.connected && fresh;
+  item["connection_status"] = fresh ? "connected" : "stale";
+  item["ssid"] = child.ssid;
+  item["bssid"] = child.bssid;
+  if (child.connected) {
+    item["rssi"] = child.rssi;
+  } else {
+    item["rssi"] = nullptr;
+  }
+  item["quality_label"] = child.connected ? qualityLabel(child.rssi) : "Unavailable";
+  item["channel"] = child.channel;
+  item["local_ip"] = child.ip;
+  item["setup_ip"] = "";
+  item["uptime_seconds"] = 0;
+  item["ap_ssid"] = "";
+  item["ap_clients"] = 0;
+  item["packetLossPercent"] = child.packetLossPercent;
+  item["pingPacketsSent"] = 0;
+  item["pingPacketsReceived"] = 0;
+  item["averagePingMs"] = child.averagePingMs;
+  item["minPingMs"] = child.minPingMs;
+  item["maxPingMs"] = child.maxPingMs;
+  item["via_hub"] = true;
+  item["hub_ip"] = WiFi.softAPIP().toString();
+  item["age_seconds"] = (millis() - child.lastSeen) / 1000;
+}
+
+void handleHubDevices() {
+  JsonDocument doc;
+  JsonArray devices = doc["devices"].to<JsonArray>();
+#if !defined(ESP8266)
+  for (size_t i = 0; i < hubChildCount; ++i) {
+    JsonObject item = devices.add<JsonObject>();
+    addHubChildStatus(item, hubChildren[i]);
+  }
+#endif
+  sendJson(doc);
+}
+
+void handleHubIdentify() {
+#if defined(ESP8266)
+  server.send(404, "application/json", R"({"error":"Hub identify proxy is only available on ESP32"})");
+#else
+  JsonDocument request;
+  if (!server.hasArg("plain") || deserializeJson(request, server.arg("plain"))) {
+    server.send(400, "application/json", R"({"error":"node_id is required"})");
+    return;
+  }
+  const String requestedNode = request["node_id"] | "";
+  for (size_t i = 0; i < hubChildCount; ++i) {
+    if (hubChildren[i].node == requestedNode) {
+      HTTPClient http;
+      http.begin("http://" + hubChildren[i].ip + "/api/identify");
+      const int response = http.POST("");
+      http.end();
+      server.send(response >= 200 && response < 300 ? 202 : 502, "application/json",
+                  response >= 200 && response < 300 ? R"({"ok":true})" : R"({"error":"Child device did not respond"})");
+      return;
+    }
+  }
+  server.send(404, "application/json", R"({"error":"Unknown child node"})");
+#endif
+}
+
 void handlePlanningStart() {
   planningCoordinator = true;
   planningJoinPending = false;
@@ -549,7 +685,11 @@ void handlePlanningStop() {
   planningResultCount = 0;
   planningSsid = "";
   WiFi.softAPdisconnect(true);
+#if defined(ESP8266)
   WiFi.softAP(kSetupSsid);
+#else
+  WiFi.softAP(hubSsid().c_str(), kHubPassword);
+#endif
   if (!savedSsid.isEmpty()) beginConnection(savedSsid, savedPassword);
   server.send(200, "application/json", R"({"ok":true})");
 }
@@ -639,6 +779,9 @@ void configureRoutes() {
   server.on("/api/channel-analysis", HTTP_GET, handleChannelAnalysis);
   server.on("/api/packet-loss", HTTP_GET, handlePacketLoss);
   server.on("/api/identify", HTTP_POST, handleIdentify);
+  server.on("/api/hub/register", HTTP_POST, handleHubRegister);
+  server.on("/api/hub/devices", HTTP_GET, handleHubDevices);
+  server.on("/api/hub/identify", HTTP_POST, handleHubIdentify);
   server.on("/api/planning/start", HTTP_POST, handlePlanningStart);
   server.on("/api/planning/join", HTTP_POST, handlePlanningJoin);
   server.on("/api/planning/result", HTTP_POST, handlePlanningResult);
@@ -683,8 +826,13 @@ void setup() {
   loadCredentials();
 
   WiFi.mode(WIFI_AP_STA);
+#if defined(ESP8266)
   WiFi.softAP(kSetupSsid);
   Serial.printf("Setup AP: %s at %s\n", kSetupSsid, WiFi.softAPIP().toString().c_str());
+#else
+  WiFi.softAP(hubSsid().c_str(), kHubPassword);
+  Serial.printf("Hub AP: %s at %s\n", hubSsid().c_str(), WiFi.softAPIP().toString().c_str());
+#endif
 
   if (!savedSsid.isEmpty()) {
     beginConnection(savedSsid, savedPassword);
@@ -708,6 +856,22 @@ void loop() {
     digitalWrite(kIdentifyLedPin, LOW);
   }
   if (WiFi.status() == WL_CONNECTED && millis() - lastPingTestAt > 15000) runPacketLossTest();
+
+#if defined(ESP8266)
+  if (WiFi.status() == WL_CONNECTED && millis() - lastHubRegisterAt > 5000) {
+    lastHubRegisterAt = millis();
+    JsonDocument report;
+    addStatus(report);
+    String body;
+    serializeJson(report, body);
+    HTTPClient http;
+    WiFiClient client;
+    http.begin(client, "http://" + WiFi.gatewayIP().toString() + "/api/hub/register");
+    http.addHeader("Content-Type", "application/json");
+    http.POST(body);
+    http.end();
+  }
+#endif
 
   if (planningJoinPending && millis() - planningJoinStartedAt > 300) {
     planningJoinPending = false;
