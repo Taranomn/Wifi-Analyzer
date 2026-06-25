@@ -16,7 +16,16 @@
 		52F2497DB5B441BDA2060D37 /* FloorPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE55AEE1DDB951327301D66 /* FloorPlanView.swift */; };
 		642DBB2F71669B6EA23EDB78 /* WiFiSurveyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6D11B524003F80EDA037D70 /* WiFiSurveyApp.swift */; };
 		646C3091988550DC56B3D9DA /* WalkTraceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47F1D04DF88D755D8874AF8A /* WalkTraceView.swift */; };
+		7A8B9C0D1E2F304152637485 /* SiteTasksView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A9B0C1D2E3F405162738495 /* SiteTasksView.swift */; };
 		8EB40C9EDBC003657F0F7C30 /* BLEProvisioningService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBA8B2E315DB6406132D50B2 /* BLEProvisioningService.swift */; };
+		A10000000000000000000001 /* smartav-icon.png in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000001 /* smartav-icon.png */; };
+		A10000000000000000000002 /* smartav-wordmark.png in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000002 /* smartav-wordmark.png */; };
+		A10000000000000000000003 /* Satoshi-Regular.woff in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000003 /* Satoshi-Regular.woff */; };
+		A10000000000000000000004 /* Satoshi-Medium.woff in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000004 /* Satoshi-Medium.woff */; };
+		A10000000000000000000005 /* Satoshi-Bold.woff in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000005 /* Satoshi-Bold.woff */; };
+		A10000000000000000000006 /* TomatoGrotesk-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000006 /* TomatoGrotesk-Bold.ttf */; };
+		A10000000000000000000007 /* TomatoGrotesk-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000007 /* TomatoGrotesk-Medium.ttf */; };
+		A10000000000000000000008 /* smartav-logo.png in Resources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000008 /* smartav-logo.png */; };
 		BB89966F8CD62336D0B5EDD3 /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE1422306FB7FE1A09C54707 /* Models.swift */; };
 		CE3FDF3D768CE63AE0C6A1EF /* ESPService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66FBE83F5B379A2E7C8D4CD /* ESPService.swift */; };
 /* End PBXBuildFile section */
@@ -29,7 +38,16 @@
 		55968E87AD2BBE230471B99D /* RoomScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoomScannerView.swift; sourceTree = "<group>"; };
 		5B0A2DC8EF3509A4D700DBA3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		72CC8B69FB567C192AEDE2AE /* ARWallScannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ARWallScannerView.swift; sourceTree = "<group>"; };
+		8A9B0C1D2E3F405162738495 /* SiteTasksView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SiteTasksView.swift; sourceTree = "<group>"; };
 		931959779CDB8B7DEC7E85A5 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A20000000000000000000001 /* smartav-icon.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "smartav-icon.png"; sourceTree = "<group>"; };
+		A20000000000000000000002 /* smartav-wordmark.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "smartav-wordmark.png"; sourceTree = "<group>"; };
+		A20000000000000000000003 /* Satoshi-Regular.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Regular.woff"; sourceTree = "<group>"; };
+		A20000000000000000000004 /* Satoshi-Medium.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Medium.woff"; sourceTree = "<group>"; };
+		A20000000000000000000005 /* Satoshi-Bold.woff */ = {isa = PBXFileReference; lastKnownFileType = file; path = "Satoshi-Bold.woff"; sourceTree = "<group>"; };
+		A20000000000000000000006 /* TomatoGrotesk-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "TomatoGrotesk-Bold.ttf"; sourceTree = "<group>"; };
+		A20000000000000000000007 /* TomatoGrotesk-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "TomatoGrotesk-Medium.ttf"; sourceTree = "<group>"; };
+		A20000000000000000000008 /* smartav-logo.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "smartav-logo.png"; sourceTree = "<group>"; };
 		B04A579B731D360E59A8D248 /* WiFiSurvey.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WiFiSurvey.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B4886C3FF370064D57C14FE6 /* SurveyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SurveyStore.swift; sourceTree = "<group>"; };
 		F66FBE83F5B379A2E7C8D4CD /* ESPService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ESPService.swift; sourceTree = "<group>"; };
@@ -59,12 +77,45 @@
 				2AE55AEE1DDB951327301D66 /* FloorPlanView.swift */,
 				5B0A2DC8EF3509A4D700DBA3 /* Info.plist */,
 				FE1422306FB7FE1A09C54707 /* Models.swift */,
+				A30000000000000000000001 /* Resources */,
 				55968E87AD2BBE230471B99D /* RoomScannerView.swift */,
+				8A9B0C1D2E3F405162738495 /* SiteTasksView.swift */,
 				B4886C3FF370064D57C14FE6 /* SurveyStore.swift */,
 				47F1D04DF88D755D8874AF8A /* WalkTraceView.swift */,
 				F6D11B524003F80EDA037D70 /* WiFiSurveyApp.swift */,
 			);
 			path = WiFiSurvey;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000001 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				A30000000000000000000002 /* Brand */,
+				A30000000000000000000003 /* Fonts */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000002 /* Brand */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000001 /* smartav-icon.png */,
+				A20000000000000000000008 /* smartav-logo.png */,
+				A20000000000000000000002 /* smartav-wordmark.png */,
+			);
+			path = Brand;
+			sourceTree = "<group>";
+		};
+		A30000000000000000000003 /* Fonts */ = {
+			isa = PBXGroup;
+			children = (
+				A20000000000000000000005 /* Satoshi-Bold.woff */,
+				A20000000000000000000004 /* Satoshi-Medium.woff */,
+				A20000000000000000000003 /* Satoshi-Regular.woff */,
+				A20000000000000000000006 /* TomatoGrotesk-Bold.ttf */,
+				A20000000000000000000007 /* TomatoGrotesk-Medium.ttf */,
+			);
+			path = Fonts;
 			sourceTree = "<group>";
 		};
 		C320C26701CC825F8A1C76DB = {
@@ -83,6 +134,7 @@
 			buildConfigurationList = E097945AB5DD226543C60CEB /* Build configuration list for PBXNativeTarget "WiFiSurvey" */;
 			buildPhases = (
 				1DF6FBFECEBA9DCD169811A8 /* Sources */,
+				A40000000000000000000001 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -128,6 +180,24 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		A40000000000000000000001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000000000000000000003 /* Satoshi-Regular.woff in Resources */,
+				A10000000000000000000004 /* Satoshi-Medium.woff in Resources */,
+				A10000000000000000000005 /* Satoshi-Bold.woff in Resources */,
+				A10000000000000000000006 /* TomatoGrotesk-Bold.ttf in Resources */,
+				A10000000000000000000007 /* TomatoGrotesk-Medium.ttf in Resources */,
+				A10000000000000000000001 /* smartav-icon.png in Resources */,
+				A10000000000000000000008 /* smartav-logo.png in Resources */,
+				A10000000000000000000002 /* smartav-wordmark.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		1DF6FBFECEBA9DCD169811A8 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -142,6 +212,7 @@
 				52F2497DB5B441BDA2060D37 /* FloorPlanView.swift in Sources */,
 				BB89966F8CD62336D0B5EDD3 /* Models.swift in Sources */,
 				371637210FF762727F7EB286 /* RoomScannerView.swift in Sources */,
+				7A8B9C0D1E2F304152637485 /* SiteTasksView.swift in Sources */,
 				20A94CD45638584DA614FE32 /* SurveyStore.swift in Sources */,
 				646C3091988550DC56B3D9DA /* WalkTraceView.swift in Sources */,
 				642DBB2F71669B6EA23EDB78 /* WiFiSurveyApp.swift in Sources */,

@@ -48,6 +48,16 @@ struct ESPService {
         _ = try await request(path: "/api/identify", method: "POST")
     }
 
+    func hubDevices() async throws -> [HubDeviceStatus] {
+        let (data, _) = try await request(path: "/api/hub/devices", timeout: 6)
+        return try JSONDecoder().decode(HubDevicesResponse.self, from: data).devices
+    }
+
+    func identifyHubChild(nodeId: String) async throws {
+        let payload = try JSONEncoder().encode(["node_id": nodeId])
+        _ = try await request(path: "/api/hub/identify", method: "POST", body: payload, timeout: 6)
+    }
+
     func startPlanning() async throws -> PlanningStatus {
         let (data, _) = try await request(path: "/api/planning/start", method: "POST")
         return try JSONDecoder().decode(PlanningStatus.self, from: data)

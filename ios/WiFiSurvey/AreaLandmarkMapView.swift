@@ -1,17 +1,26 @@
 import SwiftUI
 
+enum AreaMapAction {
+    case viewDetails
+    case recordESPMeasurement
+    case analyzeWithIPhone
+    case assignActiveESP
+}
+
 struct AreaLandmarkMapView: View {
     let buildingFloors: [BuildingFloor]
     let landmarks: [AreaLandmark]
     let points: [SurveyPoint]
     let devices: [SurveyDevice]
     let phoneTester: PhoneTesterStatus
+    var phoneResults: [PhoneNetworkSample] = []
+    var onAction: ((AreaLandmark, AreaMapAction) -> Void)? = nil
     @Binding var selectedAreaId: UUID?
     @State private var selectedFloor = 0
 
     private var floors: [(floor: BuildingFloor, landmarks: [AreaLandmark])] {
         buildingFloors.sorted { $0.order < $1.order }.map { floor in
-            (floor, landmarks.filter { $0.floorId == floor.id })
+            (floor, landmarks.filter { $0.floorId == floor.id && $0.isMapped })
         }
     }
 
@@ -33,8 +42,12 @@ struct AreaLandmarkMapView: View {
 
                 Spacer()
                 VStack(spacing: 2) {
-                    Text(floors.indices.contains(selectedFloor) ? floors[selectedFloor].floor.name : "Floor").font(.headline)
-                    Text(floorHeightText).font(.caption).foregroundStyle(.secondary)
+                    Text(floors.indices.contains(selectedFloor) ? floors[selectedFloor].floor.name : "Floor")
+                        .font(.headline)
+                        .foregroundStyle(.white)
+                    Text(floorHeightText)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.62))
                 }
                 Spacer()
 
@@ -48,28 +61,76 @@ struct AreaLandmarkMapView: View {
             }
             .padding(.horizontal, 14)
             .frame(height: 48)
+            .foregroundStyle(.white)
 
             GeometryReader { proxy in
-                Canvas { context, size in
-                    drawGrid(context, size)
-                    drawAlignmentReferences(context, size)
-                    drawConnections(context, size)
-                    for landmark in activeFloor {
-                        drawLandmark(landmark, context, size)
+                ZStack {
+                    Canvas { context, size in
+                        drawGrid(context, size)
+                        drawAlignmentReferences(context, size)
+                        drawConnections(context, size)
+                        for landmark in activeFloor {
+                            drawLandmark(landmark, context, size)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                    .gesture(DragGesture(minimumDistance: 0).onEnded { value in
+                        selectedAreaId = activeFloor.min(by: {
+                            distance(screenPoint($0, proxy.size), value.location) < distance(screenPoint($1, proxy.size), value.location)
+                        })?.id
+                    })
+
+                    ForEach(activeFloor) { landmark in
+                        let center = screenPoint(landmark, proxy.size)
+                        Button {
+                            selectedAreaId = landmark.id
+                            onAction?(landmark, .viewDetails)
+                        } label: {
+                            Circle()
+                                .fill(.clear)
+                                .frame(width: 72, height: 72)
+                                .contentShape(Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .position(center)
+                        .contextMenu {
+                            Button {
+                                selectedAreaId = landmark.id
+                                onAction?(landmark, .viewDetails)
+                            } label: {
+                                Label("View Area Details", systemImage: "info.circle")
+                            }
+                            Button {
+                                selectedAreaId = landmark.id
+                                onAction?(landmark, .analyzeWithIPhone)
+                            } label: {
+                                Label("Analyze with iPhone", systemImage: "iphone.radiowaves.left.and.right")
+                            }
+                            Button {
+                                selectedAreaId = landmark.id
+                                onAction?(landmark, .recordESPMeasurement)
+                            } label: {
+                                Label("Record ESP Measurement", systemImage: "plus.circle")
+                            }
+                            Button {
+                                selectedAreaId = landmark.id
+                                onAction?(landmark, .assignActiveESP)
+                            } label: {
+                                Label("Assign Active ESP", systemImage: "memorychip")
+                            }
+                        }
                     }
                 }
-                .contentShape(Rectangle())
-                .gesture(DragGesture(minimumDistance: 0).onEnded { value in
-                    selectedAreaId = activeFloor.min(by: {
-                        distance(screenPoint($0, proxy.size), value.location) < distance(screenPoint($1, proxy.size), value.location)
-                    })?.id
-                })
             }
         }
         .frame(minHeight: 380)
-        .background(Color(uiColor: .secondarySystemBackground))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(.quaternary))
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Color.white.opacity(0.075), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: 22, style: .continuous)
+                .stroke(Color.white.opacity(0.10), lineWidth: 1)
+        }
         .onAppear { selectFloorContainingSelection() }
         .onChange(of: landmarks.map(\.id)) { _, _ in
             selectedFloor = min(selectedFloor, max(floors.count - 1, 0))
@@ -137,13 +198,22 @@ struct AreaLandmarkMapView: View {
             context.draw(Text("\(score)").font(.title3.bold()).foregroundStyle(.white), at: center)
         }
         context.draw(Text(landmark.name).font(.caption.bold()), at: CGPoint(x: center.x, y: center.y + radius + 14))
-        context.draw(Text("\(landmark.assignedNodeIds.count) testers").font(.caption2), at: CGPoint(x: center.x, y: center.y + radius + 29))
+        let testerCount = landmark.assignedNodeIds.count + (latestPhoneResult(landmark) == nil ? 0 : 1)
+        context.draw(Text("\(testerCount) testers").font(.caption2), at: CGPoint(x: center.x, y: center.y + radius + 29))
     }
 
     private func areaScore(_ landmark: AreaLandmark) -> Int? {
         let assigned = devices.filter { landmark.assignedNodeIds.contains($0.nodeId) && $0.connected }
-        guard !assigned.isEmpty else { return nil }
-        return assigned.map(ProfessionalScore.device).reduce(0, +) / assigned.count
+        var scores = assigned.map(ProfessionalScore.device)
+        if let phone = latestPhoneResult(landmark) {
+            scores.append(ProfessionalScore.phone(phone))
+        }
+        guard !scores.isEmpty else { return nil }
+        return scores.reduce(0, +) / scores.count
+    }
+
+    private func latestPhoneResult(_ landmark: AreaLandmark) -> PhoneNetworkSample? {
+        phoneResults.filter { $0.areaId == landmark.id }.max { $0.timestamp < $1.timestamp }
     }
 
     private func screenPoint(_ landmark: AreaLandmark, _ size: CGSize) -> CGPoint {
