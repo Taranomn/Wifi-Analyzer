@@ -153,6 +153,10 @@ String hubSsid() {
 
 void ensureHubAccessPoint() {
 #if defined(ESP8266)
+  IPAddress setupIp(192, 168, 5, 1);
+  IPAddress gateway(192, 168, 5, 1);
+  IPAddress subnet(255, 255, 255, 0);
+  WiFi.softAPConfig(setupIp, gateway, subnet);
   const bool ok = WiFi.softAP(kSetupSsid);
   Serial.printf("Setup AP start %s: %s at %s\n",
                 ok ? "ok" : "failed",
@@ -963,11 +967,12 @@ void loop() {
     serializeJson(report, body);
     HTTPClient http;
     WiFiClient client;
-    http.begin(client, "http://" + WiFi.gatewayIP().toString() + "/api/hub/register");
+    const String hubIp = isAutoHubSsid(WiFi.SSID()) ? "192.168.4.1" : WiFi.gatewayIP().toString();
+    http.begin(client, "http://" + hubIp + "/api/hub/register");
     http.addHeader("Content-Type", "application/json");
     const int response = http.POST(body);
-    Serial.printf("ESP-01S hub register: gateway=%s response=%d\n",
-                  WiFi.gatewayIP().toString().c_str(),
+    Serial.printf("ESP-01S hub register: hub=%s response=%d\n",
+                  hubIp.c_str(),
                   response);
     http.end();
   }
